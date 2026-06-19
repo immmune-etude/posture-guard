@@ -51,7 +51,7 @@ export function MetricsPanel({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <MetricCard label="Frame Score" value={`${frameScore}%`} highlight />
+        <MetricCard label="Frame Score" value={`${frameScore}%`} highlight className={stateStyles[postureState]} />
         <MetricCard label="Session Score" value={`${sessionScore}%`} />
         <MetricCard
           label="Posture State"
@@ -62,32 +62,26 @@ export function MetricsPanel({
       </div>
 
       {metrics ? (
-        <div className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-bg/60 p-4 text-sm">
+        <div className="grid grid-cols-1 gap-2 rounded-xl border border-border bg-bg/60 p-4 text-sm">
           <MetricRow
-            label="Analysis Mode"
+            label="Analysis"
             value={metrics.analysisMode === 'full' ? 'Full body' : 'Upper body'}
           />
-          <MetricRow label="CVA Angle" value={`${metrics.cva.toFixed(1)}°`} />
-          <MetricRow
-            label="Torso Lean"
-            value={
-              metrics.analysisMode === 'full'
-                ? `${metrics.torsoLean.toFixed(1)}°`
-                : 'N/A (hips out of frame)'
-            }
-          />
-          <MetricRow
-            label="Shoulder Asymmetry"
-            value={metrics.shoulderAsymmetry.toFixed(3)}
-          />
-          <MetricRow
-            label="Bad Posture Timer"
-            value={formatDuration(badPostureDurationMs)}
-          />
+          <MetricRow label="CVA (neck)" value={`${metrics.cva.toFixed(1)}°`} />
+          <MetricRow label="Neck angle" value={`${metrics.neckAngle.toFixed(1)}°`} />
+          <MetricRow label="Forward head" value={metrics.forwardHeadOffset.toFixed(3)} />
+          {metrics.analysisMode === 'full' && (
+            <>
+              <MetricRow label="Spine curve" value={`${metrics.spineCurvature.toFixed(1)}°`} />
+              <MetricRow label="Torso lean" value={`${metrics.torsoLean.toFixed(1)}°`} />
+            </>
+          )}
+          <MetricRow label="Shoulder roll" value={metrics.shoulderRoll.toFixed(3)} />
+          <MetricRow label="Bad posture timer" value={formatDuration(badPostureDurationMs)} />
         </div>
       ) : (
         <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted">
-          Position your shoulders and head in frame so we can analyze your posture.
+          Position your shoulders, neck, and head in frame for strict posture analysis.
         </div>
       )}
 

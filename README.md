@@ -1,62 +1,73 @@
 # PostureGuard
 
-Real-time posture monitoring web app and Chrome extension. Uses MediaPipe Pose for on-device computer vision — no video ever leaves your browser.
+Real-time posture monitoring web app and Chrome extension with strict neck/spine analysis, background alerts, and a ranked progression system.
+
+**Live demo:** deploy with Vercel (see below) · **Repo:** https://github.com/immmune-etude/posture-guard
 
 ## Features
 
-- Live webcam pose tracking with neon skeleton overlay
-- Forward head / slouch detection using CVA and torso lean metrics
-- Alerts after 30 seconds of bad posture (visual flash + chime + notification)
-- Session scoring and rank progression (Iron → Radiant)
-- Posture history charts (localStorage; optional Firebase sync)
-- Chrome Extension side panel scaffold
+- Strict multi-point posture scoring (CVA, neck angle, forward head, spine curvature, shoulder roll)
+- Neon skeleton overlay with customizable colors
+- Background monitoring + desktop notifications (Chrome extension)
+- Rank ladder: Iron → Bronze → Silver → Gold → Platinum → Diamond → Master → Champion
+- Date-tracked streaks, RR history charts, and session analytics
+- Showcase landing page for portfolio demos
+- 100% client-side MediaPipe pose detection
 
-## Tech Stack
-
-- React + TypeScript + Vite
-- Tailwind CSS
-- MediaPipe Pose (client-side)
-- Zustand
-- Recharts
-- Firebase (optional)
-
-## Getting Started
+## Quick Start
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`, click **Start Monitoring**, and allow camera access.
+Open http://localhost:5173/ → **Try Live Demo** → **Start Monitoring**
 
-## Build
+## Deploy Online (Showcase)
+
+### Vercel (recommended)
 
 ```bash
-npm run build          # Web app
-npm run build:extension # Extension bundle in dist/extension
+npm run build
+npx vercel --prod
+```
+
+Or connect the GitHub repo at [vercel.com](https://vercel.com):
+- **Build command:** `npm run build`
+- **Output directory:** `dist/app`
+
+### Preview production build locally
+
+```bash
+npm run build
+npm run preview
 ```
 
 ## Chrome Extension
 
-1. Run `npm run build:extension`
-2. Open `chrome://extensions`
-3. Enable Developer mode
-4. Load unpacked → select `dist/extension`
+```bash
+npm run build:extension
+```
+
+Load `dist/extension/` as an unpacked extension in `chrome://extensions`.
+
+- **Side panel:** main monitoring UI
+- **Monitor in Background:** keeps camera running via offscreen document while you browse
+- **Notifications:** alerts when bad posture persists ~20 seconds
 
 ## Privacy
 
-All pose detection runs locally via MediaPipe WASM. Only aggregated session scores are stored (localStorage by default).
+All pose detection runs locally via MediaPipe WASM. No video leaves your device.
 
-## Project Structure
+## Scripts
 
-```
-src/
-├── components/       # UI components
-├── hooks/            # Camera, pose, posture, session hooks
-├── lib/posture/      # Angle + scoring math
-├── lib/gamification/ # Rank tiers + RR
-└── stores/           # Zustand state
-```
+| Command | Description |
+|---|---|
+| `npm run dev` | Local dev server |
+| `npm run build` | Production web build → `dist/app/` |
+| `npm run build:extension` | Extension bundle → `dist/extension/` |
+| `npm test` | Unit tests |
+| `npm run preview` | Preview production build |
 
 ## License
 

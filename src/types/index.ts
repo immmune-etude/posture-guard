@@ -9,6 +9,10 @@ export interface Landmark {
 
 export interface PostureMetrics {
   cva: number
+  neckAngle: number
+  forwardHeadOffset: number
+  spineCurvature: number
+  shoulderRoll: number
   torsoLean: number
   shoulderAsymmetry: number
   analysisMode: 'full' | 'upper'
@@ -35,6 +39,14 @@ export interface DailyStats {
   goodMinutes: number
   badMinutes: number
   sessionCount: number
+  rankRating: number
+  rank: RankTier
+}
+
+export interface RankHistoryEntry {
+  date: string
+  rank: RankTier
+  rankRating: number
 }
 
 export interface UserProfile {
@@ -47,6 +59,8 @@ export interface UserProfile {
   currentStreak: number
   longestStreak: number
   totalSessions: number
+  lastSessionDate: string | null
+  rankHistory: RankHistoryEntry[]
   createdAt: number
 }
 
@@ -57,8 +71,8 @@ export type RankTier =
   | 'Gold'
   | 'Platinum'
   | 'Diamond'
-  | 'Ascendant'
-  | 'Immortal'
-  | 'Radiant'
+  | 'Master'
+  | 'Champion'
 
 export type AppTab = 'monitor' | 'history' | 'progress'
+export type AppView = 'landing' | 'app'

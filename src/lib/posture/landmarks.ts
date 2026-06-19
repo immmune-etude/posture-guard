@@ -44,17 +44,31 @@ export function isLandmarkVisible(
   return Boolean(landmark && (landmark.visibility ?? 1) >= minVisibility)
 }
 
-function pickBestHeadReference(
+function pickNeckReference(
+  leftEar: Landmark | undefined,
+  rightEar: Landmark | undefined,
+  nose: Landmark | undefined,
+): Landmark | null {
+  const candidates: Landmark[] = []
+  if (leftEar && isLandmarkVisible(leftEar)) candidates.push(leftEar)
+  if (rightEar && isLandmarkVisible(rightEar)) candidates.push(rightEar)
+  if (candidates.length === 0 && nose && isLandmarkVisible(nose)) candidates.push(nose)
+  if (candidates.length === 0) return null
+
+  return candidates.reduce((best, candidate) =>
+    (candidate.visibility ?? 1) > (best.visibility ?? 1) ? candidate : best,
+  )
+}
+
+function pickHeadReference(
   nose: Landmark | undefined,
   leftEar: Landmark | undefined,
   rightEar: Landmark | undefined,
 ): Landmark | null {
   const candidates: Landmark[] = []
-
+  if (nose && isLandmarkVisible(nose)) candidates.push(nose)
   if (leftEar && isLandmarkVisible(leftEar)) candidates.push(leftEar)
   if (rightEar && isLandmarkVisible(rightEar)) candidates.push(rightEar)
-  if (nose && isLandmarkVisible(nose)) candidates.push(nose)
-
   if (candidates.length === 0) return null
 
   return candidates.reduce((best, candidate) =>
@@ -73,19 +87,21 @@ export function getKeyLandmarks(landmarks: Landmark[]) {
 
   const shoulderMid = midpoint(leftShoulder, rightShoulder)
   const hipMid = midpoint(leftHip, rightHip)
-  const headRef = pickBestHeadReference(nose, leftEar, rightEar)
+  const neckRef = pickNeckReference(leftEar, rightEar, nose)
+  const headRef = pickHeadReference(nose, leftEar, rightEar)
 
   const shouldersVisible =
     isLandmarkVisible(leftShoulder) && isLandmarkVisible(rightShoulder)
   const hipsVisible = isLandmarkVisible(leftHip) && isLandmarkVisible(rightHip)
 
   let mode: AnalysisMode = 'none'
-  if (shouldersVisible && headRef) {
+  if (shouldersVisible && neckRef && headRef) {
     mode = hipsVisible ? 'full' : 'upper'
   }
 
   return {
     nose,
+    neckRef,
     headRef,
     shoulderMid,
     hipMid,

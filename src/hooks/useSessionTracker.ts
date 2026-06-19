@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { applyRR, calculateRRDelta } from '../lib/gamification/rr'
-import { getRankTier } from '../lib/gamification/ranks'
+import { formatDateKey, updateProfileAfterSession } from '../lib/gamification/ranks'
 import {
   loadLocalProfile,
   persistSession,
@@ -98,6 +98,7 @@ export function useSessionTracker() {
     const endTime = Date.now()
     const averageScore =
       stats.frameCount > 0 ? Math.round(stats.scoreSum / stats.frameCount) : 0
+    const sessionDate = formatDateKey(new Date(endTime))
 
     const completed: PostureSession = {
       id: crypto.randomUUID(),
@@ -117,25 +118,19 @@ export function useSessionTracker() {
     const rrDelta = calculateRRDelta(
       stats.goodMs,
       stats.warningMs,
+      stats.badMs,
       stats.alertCount,
       completed.durationMs >= 15 * 60_000,
-      false,
+      profile.currentStreak >= 6,
     )
 
     const nextRR = applyRR(profile.rankRating, rrDelta)
-    const nextTier = getRankTier(nextRR)
-
-    const updatedProfile: UserProfile = {
-      ...profile,
-      rankRating: nextRR,
-      rank: nextTier.name,
-      totalGoodPostureMinutes:
-        profile.totalGoodPostureMinutes + stats.goodMs / 60_000,
-      totalSessions: profile.totalSessions + 1,
-    }
+    const updatedProfile = updateProfileAfterSession(profile, nextRR, sessionDate)
+    updatedProfile.totalSessions += 1
+    updatedProfile.totalGoodPostureMinutes += stats.goodMs / 60_000
 
     await persistSession(completed, updatedProfile)
-    updateDailyStatsCache(loadLocalSessions())
+    updateDailyStatsCache(loadLocalSessions(), updatedProfile)
     saveLocalProfile(updatedProfile)
 
     setProfile(updatedProfile)
@@ -147,12 +142,9 @@ export function useSessionTracker() {
     return completed
   }, [profile, tickSession])
 
-  const sessionScore = sessionRef.current
-    ? calculateSessionScore(
-        sessionRef.current.stats.goodMs,
-        sessionRef.current.stats.warningMs,
-        sessionRef.current.stats.badMs,
-      )
+  const liveStats = sessionRef.current?.stats
+  const sessionScore = liveStats
+    ? calculateSessionScore(liveStats.goodMs, liveStats.warningMs, liveStats.badMs)
     : 0
 
   return {
@@ -163,5 +155,6 @@ export function useSessionTracker() {
     lastSession,
     startSession,
     endSession,
+    refreshProfile: () => setProfile(loadLocalProfile()),
   }
 }

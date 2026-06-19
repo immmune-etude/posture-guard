@@ -1,12 +1,8 @@
 import { useEffect, useRef } from 'react'
-import {
-  calculateCVA,
-  calculateShoulderAsymmetry,
-  calculateTorsoLean,
-} from '../lib/posture/angles'
-import { getKeyLandmarks } from '../lib/posture/landmarks'
+import { analyzePosture } from '../lib/posture/analyze'
 import { calculateFrameScore, scoreToPostureState } from '../lib/posture/scoring'
 import { POSTURE_THRESHOLDS } from '../lib/posture/thresholds'
+import { sendExtensionMessage } from '../lib/extension/messaging'
 import { usePostureStore } from '../stores/postureStore'
 
 export function usePostureMonitor(enabled: boolean) {
@@ -35,20 +31,10 @@ export function usePostureMonitor(enabled: boolean) {
       return
     }
 
-    const key = getKeyLandmarks(landmarks)
-    if (!key.visible) {
+    const metrics = analyzePosture(landmarks)
+    if (!metrics) {
       setMetrics(null, 0, 'unknown')
       return
-    }
-
-    const metrics = {
-      cva: calculateCVA(key.headRef!, key.shoulderMid),
-      torsoLean:
-        key.mode === 'full'
-          ? calculateTorsoLean(key.shoulderMid, key.hipMid)
-          : 0,
-      shoulderAsymmetry: calculateShoulderAsymmetry(key.leftShoulder, key.rightShoulder),
-      analysisMode: key.mode === 'full' ? ('full' as const) : ('upper' as const),
     }
 
     const frameScore = calculateFrameScore(metrics)
@@ -88,6 +74,10 @@ export function usePostureMonitor(enabled: boolean) {
       ) {
         badDurationRef.current = 0
         triggerAlert()
+        sendExtensionMessage({
+          type: 'POSTURE_ALERT',
+          body: 'Sit up straight! Your neck and spine alignment need correction.',
+        })
       }
     }, 250)
 

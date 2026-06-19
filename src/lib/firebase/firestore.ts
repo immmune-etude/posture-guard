@@ -8,6 +8,7 @@ import {
   setDoc,
   type Firestore,
 } from 'firebase/firestore'
+import { formatDateKey } from '../gamification/ranks'
 import type { DailyStats, PostureSession, UserProfile } from '../../types'
 import { getFirestoreDb } from './config'
 
@@ -15,11 +16,8 @@ const LOCAL_PROFILE_KEY = 'posture-guard-profile'
 const LOCAL_SESSIONS_KEY = 'posture-guard-sessions'
 const LOCAL_DAILY_KEY = 'posture-guard-daily'
 
-export function loadLocalProfile(): UserProfile {
-  const raw = localStorage.getItem(LOCAL_PROFILE_KEY)
-  if (raw) return JSON.parse(raw) as UserProfile
-
-  const profile: UserProfile = {
+function defaultProfile(): UserProfile {
+  return {
     uid: 'local-guest',
     displayName: 'Guest',
     email: '',
@@ -29,8 +27,24 @@ export function loadLocalProfile(): UserProfile {
     currentStreak: 0,
     longestStreak: 0,
     totalSessions: 0,
+    lastSessionDate: null,
+    rankHistory: [{ date: formatDateKey(), rank: 'Iron', rankRating: 0 }],
     createdAt: Date.now(),
   }
+}
+
+export function loadLocalProfile(): UserProfile {
+  const raw = localStorage.getItem(LOCAL_PROFILE_KEY)
+  if (raw) {
+    const profile = JSON.parse(raw) as UserProfile
+    return {
+      ...defaultProfile(),
+      ...profile,
+      rankHistory: profile.rankHistory ?? [{ date: formatDateKey(), rank: profile.rank, rankRating: profile.rankRating }],
+    }
+  }
+
+  const profile = defaultProfile()
   localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(profile))
   return profile
 }
@@ -47,7 +61,7 @@ export function loadLocalSessions(): PostureSession[] {
 export function saveLocalSession(session: PostureSession) {
   const sessions = loadLocalSessions()
   sessions.unshift(session)
-  localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(sessions.slice(0, 100)))
+  localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(sessions.slice(0, 365)))
 }
 
 export function loadLocalDailyStats(): DailyStats[] {
@@ -83,17 +97,19 @@ export async function fetchRecentSessions(userId: string, days = 30): Promise<Po
   return snapshot.docs.map((docSnap) => docSnap.data() as PostureSession)
 }
 
-export function aggregateDailyStats(sessions: PostureSession[]): DailyStats[] {
+export function aggregateDailyStats(sessions: PostureSession[], profile: UserProfile): DailyStats[] {
   const map = new Map<string, DailyStats>()
 
   for (const session of sessions) {
-    const date = new Date(session.startTime).toISOString().slice(0, 10)
+    const date = formatDateKey(new Date(session.startTime))
     const existing = map.get(date) ?? {
       date,
       averageScore: 0,
       goodMinutes: 0,
       badMinutes: 0,
       sessionCount: 0,
+      rankRating: profile.rankRating,
+      rank: profile.rank,
     }
 
     existing.sessionCount += 1
@@ -106,11 +122,19 @@ export function aggregateDailyStats(sessions: PostureSession[]): DailyStats[] {
     map.set(date, existing)
   }
 
+  for (const entry of profile.rankHistory) {
+    const existing = map.get(entry.date)
+    if (existing) {
+      existing.rankRating = entry.rankRating
+      existing.rank = entry.rank
+    }
+  }
+
   return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date))
 }
 
-export function updateDailyStatsCache(sessions: PostureSession[]) {
-  const stats = aggregateDailyStats(sessions)
+export function updateDailyStatsCache(sessions: PostureSession[], profile: UserProfile) {
+  const stats = aggregateDailyStats(sessions, profile)
   saveLocalDailyStats(stats)
   return stats
 }

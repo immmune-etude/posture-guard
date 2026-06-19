@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AlertManager } from './components/AlertManager'
 import { CameraFeed } from './components/CameraFeed'
 import { Dashboard } from './components/dashboard/Dashboard'
+import { LandingPage } from './components/LandingPage'
 import { MetricsPanel } from './components/MetricsPanel'
 import { SkeletonOverlay } from './components/SkeletonOverlay'
 import { SkeletonSettings } from './components/SkeletonSettings'
@@ -9,11 +10,22 @@ import { useCamera } from './hooks/useCamera'
 import { usePoseDetection } from './hooks/usePoseDetection'
 import { usePostureMonitor } from './hooks/usePostureMonitor'
 import { useSessionTracker } from './hooks/useSessionTracker'
+import {
+  isBackgroundMode,
+  isExtensionContext,
+  startBackgroundMonitoring,
+  stopBackgroundMonitoring,
+} from './lib/extension/messaging'
 import { usePostureStore } from './stores/postureStore'
 import type { AppTab } from './types'
 
 function App() {
+  const backgroundMode = isBackgroundMode()
+  const [view, setView] = useState<'landing' | 'app'>(backgroundMode ? 'app' : 'landing')
   const [activeTab, setActiveTab] = useState<AppTab>('monitor')
+  const [backgroundMonitoring, setBackgroundMonitoring] = useState(false)
+  const [hideVideo, setHideVideo] = useState(false)
+
   const { videoRef, isActive, error, start, stop } = useCamera()
   const {
     landmarks,
@@ -48,8 +60,21 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!backgroundMode) return
+    void (async () => {
+      await start()
+      setMonitoring(true)
+      startSession()
+    })()
+  }, [backgroundMode, setMonitoring, start, startSession])
+
   const handleToggleMonitoring = async () => {
     if (isMonitoring) {
+      if (backgroundMonitoring && isExtensionContext()) {
+        await stopBackgroundMonitoring()
+        setBackgroundMonitoring(false)
+      }
       if (isSessionActive) await endSession()
       stop()
       setMonitoring(false)
@@ -61,22 +86,87 @@ function App() {
     startSession()
   }
 
+  const handleBackgroundToggle = async () => {
+    if (!isExtensionContext()) return
+
+    if (backgroundMonitoring) {
+      await stopBackgroundMonitoring()
+      setBackgroundMonitoring(false)
+      return
+    }
+
+    if (!isMonitoring) {
+      await start()
+      setMonitoring(true)
+      startSession()
+    }
+
+    await startBackgroundMonitoring()
+    setBackgroundMonitoring(true)
+  }
+
+  if (view === 'landing' && !backgroundMode) {
+    return <LandingPage onLaunchDemo={() => setView('app')} />
+  }
+
   const monitor = (
     <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
       <div className="space-y-4">
-        <div className="relative">
-          <CameraFeed videoRef={videoRef} isActive={isActive} />
-          {isActive && <SkeletonOverlay videoRef={videoRef} />}
-        </div>
+        {!backgroundMode && (
+          <div className="relative">
+            {!hideVideo ? (
+              <>
+                <CameraFeed videoRef={videoRef} isActive={isActive} />
+                {isActive && <SkeletonOverlay videoRef={videoRef} />}
+              </>
+            ) : (
+              <div className="flex aspect-[4/3] items-center justify-center rounded-2xl border border-border bg-surface text-sm text-muted">
+                Camera hidden — monitoring continues in background
+              </div>
+            )}
+          </div>
+        )}
+
+        {backgroundMode && (
+          <div className="rounded-2xl border border-neon/20 bg-neon/5 p-4 text-sm text-neon">
+            Background monitoring active. You will receive notifications when posture slips.
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={handleToggleMonitoring}
-            className="rounded-xl bg-neon px-5 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
-          >
-            {isMonitoring ? 'Stop Monitoring' : 'Start Monitoring'}
-          </button>
+          {!backgroundMode && (
+            <button
+              type="button"
+              onClick={handleToggleMonitoring}
+              className="rounded-xl bg-neon px-5 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
+            >
+              {isMonitoring ? 'Stop Monitoring' : 'Start Monitoring'}
+            </button>
+          )}
+
+          {isExtensionContext() && !backgroundMode && (
+            <button
+              type="button"
+              onClick={handleBackgroundToggle}
+              className={`rounded-xl px-5 py-3 text-sm font-semibold ${
+                backgroundMonitoring
+                  ? 'bg-warning/20 text-warning'
+                  : 'border border-border text-muted hover:border-neon/30 hover:text-neon'
+              }`}
+            >
+              {backgroundMonitoring ? 'Background On' : 'Monitor in Background'}
+            </button>
+          )}
+
+          {isMonitoring && !backgroundMode && (
+            <button
+              type="button"
+              onClick={() => setHideVideo((value) => !value)}
+              className="rounded-xl border border-border px-5 py-3 text-sm text-muted hover:text-neon"
+            >
+              {hideVideo ? 'Show Camera' : 'Hide Camera'}
+            </button>
+          )}
 
           {isMonitoring && (
             <StatusPill
@@ -92,21 +182,34 @@ function App() {
           </div>
         )}
 
-        <SkeletonSettings />
+        {!backgroundMode && <SkeletonSettings />}
       </div>
 
-      <MetricsPanel
-        metrics={metrics}
-        frameScore={frameScore}
-        postureState={postureState}
-        sessionScore={sessionScore}
-        elapsedMs={elapsedMs}
-        badPostureDurationMs={badPostureDurationMs}
-        rank={profile.rank}
-        rankRating={profile.rankRating}
-      />
+      {!backgroundMode && (
+        <MetricsPanel
+          metrics={metrics}
+          frameScore={frameScore}
+          postureState={postureState}
+          sessionScore={sessionScore}
+          elapsedMs={elapsedMs}
+          badPostureDurationMs={badPostureDurationMs}
+          rank={profile.rank}
+          rankRating={profile.rankRating}
+        />
+      )}
     </div>
   )
+
+  if (backgroundMode) {
+    return (
+      <>
+        <AlertManager />
+        <div className="hidden">
+          <CameraFeed videoRef={videoRef} isActive={isActive} />
+        </div>
+      </>
+    )
+  }
 
   return (
     <>
@@ -115,6 +218,7 @@ function App() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         profile={profile}
+        onBackToLanding={() => setView('landing')}
         monitor={monitor}
       />
       <TabSwitcher activeTab={activeTab} onChange={setActiveTab} />
