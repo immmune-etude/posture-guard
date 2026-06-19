@@ -9,7 +9,6 @@ export function CameraFeed({ videoRef, isActive }: CameraFeedProps) {
       <video
         ref={videoRef}
         className={`h-full w-full object-cover ${isActive ? 'scale-x-[-1]' : ''}`}
-        autoPlay
         playsInline
         muted
       />

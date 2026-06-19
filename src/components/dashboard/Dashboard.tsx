@@ -8,7 +8,6 @@ interface DashboardProps {
   onTabChange: (tab: AppTab) => void
   profile: UserProfile
   monitor: React.ReactNode
-  sessionActive?: boolean
   onBackToLanding?: () => void
 }
 
@@ -23,7 +22,6 @@ export function Dashboard({
   onTabChange,
   profile,
   monitor,
-  sessionActive = false,
   onBackToLanding,
 }: DashboardProps) {
   return (
@@ -33,8 +31,7 @@ export function Dashboard({
           <p className="text-xs uppercase tracking-[0.25em] text-neon">PostureGuard</p>
           <h1 className="text-3xl font-bold">Real-Time Posture Monitor</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted">
-            Strict neck & spine analysis runs locally. Switch tabs freely — your session keeps
-            running in the background.
+            Strict neck & spine analysis runs locally. Use background monitoring while you work.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -65,13 +62,6 @@ export function Dashboard({
           </nav>
         </div>
       </header>
-
-      {sessionActive && activeTab !== 'monitor' && (
-        <div className="flex items-center gap-2 rounded-xl border border-neon/30 bg-neon/5 px-4 py-3 text-sm text-neon">
-          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-neon" />
-          Session active — camera is still monitoring your posture
-        </div>
-      )}
 
       {activeTab === 'monitor' && monitor}
       {activeTab === 'history' && <HistoryChart />}

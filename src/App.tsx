@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { AlertManager } from './components/AlertManager'
-import { CameraPreview } from './components/CameraPreview'
+import { CameraFeed } from './components/CameraFeed'
 import { Dashboard } from './components/dashboard/Dashboard'
-import { HiddenVideoSource } from './components/HiddenVideoSource'
 import { LandingPage } from './components/LandingPage'
 import { MetricsPanel } from './components/MetricsPanel'
+import { SkeletonOverlay } from './components/SkeletonOverlay'
 import { SkeletonSettings } from './components/SkeletonSettings'
 import { useCamera } from './hooks/useCamera'
-import { useCameraKeepAlive } from './hooks/useCameraKeepAlive'
 import { usePoseDetection } from './hooks/usePoseDetection'
 import { usePostureMonitor } from './hooks/usePostureMonitor'
 import { useSessionTracker } from './hooks/useSessionTracker'
@@ -26,7 +25,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('monitor')
   const [backgroundMonitoring, setBackgroundMonitoring] = useState(false)
 
-  const { videoRef, isActive, error, start, stop, reattachStream } = useCamera()
+  const { videoRef, isActive, error, start, stop } = useCamera()
   const {
     landmarks,
     metrics,
@@ -47,11 +46,8 @@ function App() {
     endSession,
   } = useSessionTracker()
 
-  const sessionRunning = isMonitoring && isActive
-
-  usePoseDetection(videoRef, sessionRunning)
-  usePostureMonitor(sessionRunning)
-  useCameraKeepAlive(videoRef, sessionRunning, reattachStream, activeTab)
+  usePoseDetection(videoRef, isMonitoring && isActive)
+  usePostureMonitor(isMonitoring && isActive)
 
   useEffect(() => {
     setCameraError(error)
@@ -117,7 +113,8 @@ function App() {
       <div className="space-y-4">
         {!backgroundMode && (
           <div className="relative">
-            <CameraPreview videoRef={videoRef} isActive={isActive} />
+            <CameraFeed videoRef={videoRef} isActive={isActive} />
+            {isActive && <SkeletonOverlay videoRef={videoRef} />}
           </div>
         )}
 
@@ -188,7 +185,9 @@ function App() {
     return (
       <>
         <AlertManager />
-        {sessionRunning && <HiddenVideoSource videoRef={videoRef} />}
+        <div className="hidden">
+          <CameraFeed videoRef={videoRef} isActive={isActive} />
+        </div>
       </>
     )
   }
@@ -196,12 +195,10 @@ function App() {
   return (
     <>
       <AlertManager />
-      {sessionRunning && <HiddenVideoSource videoRef={videoRef} />}
       <Dashboard
         activeTab={activeTab}
         onTabChange={setActiveTab}
         profile={profile}
-        sessionActive={isMonitoring && isSessionActive}
         onBackToLanding={() => setView('landing')}
         monitor={monitor}
       />

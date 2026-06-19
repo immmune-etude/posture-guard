@@ -7,7 +7,6 @@ interface UseCameraResult {
   error: string | null
   start: () => Promise<void>
   stop: () => void
-  reattachStream: () => Promise<void>
 }
 
 export function useCamera(): UseCameraResult {
@@ -15,40 +14,6 @@ export function useCamera(): UseCameraResult {
   const streamRef = useRef<MediaStream | null>(null)
   const [isActive, setIsActive] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const reattachStream = useCallback(async () => {
-    const video = videoRef.current
-    const stream = streamRef.current
-    if (!video || !stream) return
-
-    const trackDead = stream.getVideoTracks().some((track) => track.readyState === 'ended')
-    if (trackDead) return
-
-    const needsReattach =
-      video.paused ||
-      video.readyState < 2 ||
-      video.videoWidth === 0 ||
-      video.videoHeight === 0
-
-    if (!needsReattach) {
-      try {
-        await video.play()
-      } catch {
-        // fall through to full reattach
-      }
-      if (video.videoWidth > 0 && !video.paused) return
-    }
-
-    video.srcObject = null
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-
-    video.srcObject = stream
-    try {
-      await video.play()
-    } catch {
-      // ignore — keepalive will retry
-    }
-  }, [])
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop())
@@ -96,6 +61,5 @@ export function useCamera(): UseCameraResult {
     error,
     start,
     stop,
-    reattachStream,
   }
 }
