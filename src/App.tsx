@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { AlertManager } from './components/AlertManager'
-import { CameraFeed } from './components/CameraFeed'
+import { CameraPreview } from './components/CameraPreview'
 import { Dashboard } from './components/dashboard/Dashboard'
+import { HiddenVideoSource } from './components/HiddenVideoSource'
 import { LandingPage } from './components/LandingPage'
 import { MetricsPanel } from './components/MetricsPanel'
-import { SkeletonOverlay } from './components/SkeletonOverlay'
 import { SkeletonSettings } from './components/SkeletonSettings'
 import { useCamera } from './hooks/useCamera'
+import { useCameraKeepAlive } from './hooks/useCameraKeepAlive'
 import { usePoseDetection } from './hooks/usePoseDetection'
 import { usePostureMonitor } from './hooks/usePostureMonitor'
 import { useSessionTracker } from './hooks/useSessionTracker'
@@ -24,9 +25,8 @@ function App() {
   const [view, setView] = useState<'landing' | 'app'>(backgroundMode ? 'app' : 'landing')
   const [activeTab, setActiveTab] = useState<AppTab>('monitor')
   const [backgroundMonitoring, setBackgroundMonitoring] = useState(false)
-  const [hideVideo, setHideVideo] = useState(false)
 
-  const { videoRef, isActive, error, start, stop } = useCamera()
+  const { videoRef, isActive, error, start, stop, reattachStream } = useCamera()
   const {
     landmarks,
     metrics,
@@ -47,8 +47,11 @@ function App() {
     endSession,
   } = useSessionTracker()
 
-  usePoseDetection(videoRef, isMonitoring && isActive)
-  usePostureMonitor(isMonitoring && isActive)
+  const sessionRunning = isMonitoring && isActive
+
+  usePoseDetection(videoRef, sessionRunning)
+  usePostureMonitor(sessionRunning)
+  useCameraKeepAlive(videoRef, sessionRunning, reattachStream, activeTab)
 
   useEffect(() => {
     setCameraError(error)
@@ -114,16 +117,7 @@ function App() {
       <div className="space-y-4">
         {!backgroundMode && (
           <div className="relative">
-            {!hideVideo ? (
-              <>
-                <CameraFeed videoRef={videoRef} isActive={isActive} />
-                {isActive && <SkeletonOverlay videoRef={videoRef} />}
-              </>
-            ) : (
-              <div className="flex aspect-[4/3] items-center justify-center rounded-2xl border border-border bg-surface text-sm text-muted">
-                Camera hidden — monitoring continues in background
-              </div>
-            )}
+            <CameraPreview videoRef={videoRef} isActive={isActive} />
           </div>
         )}
 
@@ -155,16 +149,6 @@ function App() {
               }`}
             >
               {backgroundMonitoring ? 'Background On' : 'Monitor in Background'}
-            </button>
-          )}
-
-          {isMonitoring && !backgroundMode && (
-            <button
-              type="button"
-              onClick={() => setHideVideo((value) => !value)}
-              className="rounded-xl border border-border px-5 py-3 text-sm text-muted hover:text-neon"
-            >
-              {hideVideo ? 'Show Camera' : 'Hide Camera'}
             </button>
           )}
 
@@ -204,9 +188,7 @@ function App() {
     return (
       <>
         <AlertManager />
-        <div className="hidden">
-          <CameraFeed videoRef={videoRef} isActive={isActive} />
-        </div>
+        {sessionRunning && <HiddenVideoSource videoRef={videoRef} />}
       </>
     )
   }
@@ -214,10 +196,12 @@ function App() {
   return (
     <>
       <AlertManager />
+      {sessionRunning && <HiddenVideoSource videoRef={videoRef} />}
       <Dashboard
         activeTab={activeTab}
         onTabChange={setActiveTab}
         profile={profile}
+        sessionActive={isMonitoring && isSessionActive}
         onBackToLanding={() => setView('landing')}
         monitor={monitor}
       />
